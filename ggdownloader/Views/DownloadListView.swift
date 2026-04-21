@@ -9,6 +9,8 @@ struct DownloadListView: View {
     let filter: DownloadFilter
     @State private var downloadManager = DownloadManager.shared
     @State private var showAddSheet = false
+    @State private var shareItems: [URL] = []
+    @State private var showShareSheet = false
 
     private var filteredDownloads: [DownloadItem] {
         switch filter {
@@ -54,6 +56,9 @@ struct DownloadListView: View {
             .sheet(isPresented: $showAddSheet) {
                 AddDownloadView()
             }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(items: shareItems)
+            }
         }
     }
 
@@ -81,6 +86,14 @@ struct DownloadListView: View {
                             }
                             .tint(.green)
                         }
+                        if item.status == .completed {
+                            Button("Share") {
+                                let fileURL = DownloadStore.shared.destinationURL(for: item.fileName)
+                                shareItems = [fileURL]
+                                showShareSheet = true
+                            }
+                            .tint(.blue)
+                        }
                     }
             }
         }
@@ -107,6 +120,16 @@ struct DownloadListView: View {
             }
         }
     }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
