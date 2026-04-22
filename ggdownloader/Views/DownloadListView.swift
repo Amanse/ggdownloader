@@ -89,6 +89,7 @@ struct DownloadListView: View {
                         if item.status == .completed {
                             Button("Share") {
                                 let fileURL = DownloadStore.shared.destinationURL(for: item.fileName)
+                                guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
                                 shareItems = [fileURL]
                                 showShareSheet = true
                             }
