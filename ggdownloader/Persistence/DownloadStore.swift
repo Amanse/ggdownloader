@@ -91,4 +91,16 @@ final class DownloadStore: Sendable {
         let url = downloadsDirectory.appendingPathComponent(fileName)
         try? fileManager.removeItem(at: url)
     }
+
+    // MARK: - Pending URLs (from Share Extension)
+
+    private let pendingURLsKey = "pendingDownloadURLs"
+
+    func pendingURLStrings() -> [String] {
+        defaults?.stringArray(forKey: pendingURLsKey) ?? []
+    }
+
+    func clearPendingURLs() {
+        defaults?.removeObject(forKey: pendingURLsKey)
+    }
 }
