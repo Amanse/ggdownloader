@@ -81,6 +81,15 @@ struct DownloadListView: View {
                             }
                             .tint(.green)
                         }
+                        if item.status == .completed {
+                            let fileURL = DownloadStore.shared.destinationURL(for: item.fileName)
+                            if FileManager.default.fileExists(atPath: fileURL.path) {
+                                ShareLink(item: fileURL) {
+                                    Label("Share", systemImage: "square.and.arrow.up")
+                                }
+                                .tint(.blue)
+                            }
+                        }
                     }
             }
         }
