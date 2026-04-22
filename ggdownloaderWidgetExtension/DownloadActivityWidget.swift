@@ -28,7 +28,7 @@ struct DownloadActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(Int(context.state.progress * 100))%")
-                            .font(.title3.bold())
+                            .font(.callout.bold())
                             .monospacedDigit()
                         Text(context.state.speed)
                             .font(.caption2)
