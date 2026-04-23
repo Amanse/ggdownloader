@@ -62,10 +62,11 @@ final class DownloadStore: Sendable {
             .appendingPathComponent("Downloads", isDirectory: true)
     }
 
-    func prepareDownloadsDirectory() {
-        try? fileManager.createDirectory(
+    func prepareDownloadsDirectory() throws {
+        try fileManager.createDirectory(
             at: downloadsDirectory,
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
         )
     }
 

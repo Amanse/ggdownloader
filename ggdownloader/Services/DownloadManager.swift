@@ -19,7 +19,7 @@ final class DownloadManager: NSObject {
 
     override private init() {
         super.init()
-        store.prepareDownloadsDirectory()
+        try? store.prepareDownloadsDirectory()
 
         let config = URLSessionConfiguration.background(
             withIdentifier: "\(Bundle.main.bundleIdentifier!).downloads"
@@ -198,11 +198,18 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         else { return }
 
         let store = DownloadStore.shared
-        store.prepareDownloadsDirectory()
+        do {
+            try store.prepareDownloadsDirectory()
+        } catch {
+            Task { @MainActor in
+                self.markFailed(id: id, error: "Failed to create downloads directory: \(error.localizedDescription)")
+            }
+            return
+        }
 
         // Determine file name - prefer server-suggested name
         let suggestedName = downloadTask.response?.suggestedFilename
-        let fileName: String
+        let rawName: String
 
         // Get stored fileName from downloads on main thread (snapshot)
         var storedName: String?
@@ -210,7 +217,9 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
             storedName = self.downloads.first(where: { $0.id == id })?.fileName
         }
 
-        fileName = suggestedName ?? storedName ?? location.lastPathComponent
+        rawName = suggestedName ?? storedName ?? location.lastPathComponent
+        // Strip path separators so a server-supplied name can't escape the downloads directory
+        let fileName = rawName.components(separatedBy: "/").last ?? rawName
 
         let destination = store.destinationURL(for: fileName)
 
