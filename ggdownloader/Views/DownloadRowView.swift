@@ -39,7 +39,7 @@ struct DownloadRowView: View {
             if item.status == .downloading || item.status == .paused {
                 VStack(spacing: 4) {
                     ProgressView(value: item.progress)
-                        .tint(item.status == .paused ? .orange : .blue)
+                        .tint(item.status == .paused ? .orange : AccentColorManager.shared.accentColor)
 
                     HStack {
                         Text(item.downloadedBytes.formattedFileSize)
@@ -74,7 +74,7 @@ struct DownloadRowView: View {
     private var iconColor: Color {
         switch item.status {
         case .waiting:     .gray
-        case .downloading: .blue
+        case .downloading: AccentColorManager.shared.accentColor
         case .paused:      .orange
         case .completed:   .green
         case .failed:      .red

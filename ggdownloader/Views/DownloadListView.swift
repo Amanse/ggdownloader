@@ -87,7 +87,7 @@ struct DownloadListView: View {
                                 ShareLink(item: fileURL) {
                                     Label("Share", systemImage: "square.and.arrow.up")
                                 }
-                                .tint(.blue)
+                                .tint(AccentColorManager.shared.accentColor)
                             }
                         }
                     }

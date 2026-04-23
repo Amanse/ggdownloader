@@ -92,6 +92,18 @@ final class DownloadStore: Sendable {
         try? fileManager.removeItem(at: url)
     }
 
+    // MARK: - Accent Color
+
+    private let accentColorKey = "accentColorHex"
+
+    func saveAccentColor(_ hex: String) {
+        defaults?.set(hex, forKey: accentColorKey)
+    }
+
+    func loadAccentColorHex() -> String {
+        defaults?.string(forKey: accentColorKey) ?? "#007AFF"
+    }
+
     // MARK: - Pending URLs (from Share Extension)
 
     private let pendingURLsKey = "pendingDownloadURLs"
