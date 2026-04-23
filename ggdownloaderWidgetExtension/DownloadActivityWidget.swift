@@ -2,9 +2,9 @@ import SwiftUI
 import WidgetKit
 import ActivityKit
 
-private var accentColor: Color {
+private var userAccentColor: Color {
     let defaults = UserDefaults(suiteName: "group.sanuki.ggdownloader")
-    let hex = defaults?.string(forKey: "accentColorHex") ?? "#007AFF"
+    let hex = defaults?.string(forKey: "userAccentColorHex") ?? "#007AFF"
     return Color(hex: hex)
 }
 
@@ -19,7 +19,7 @@ struct DownloadActivityWidget: Widget {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(accentColor)
+                            .foregroundStyle(userAccentColor)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Downloading")
                                 .font(.caption2)
@@ -53,7 +53,7 @@ struct DownloadActivityWidget: Widget {
                     }
                     .gaugeStyle(.accessoryLinear)
                     .tint(
-                        Gradient(colors: [accentColor, accentColor.opacity(0.7)])
+                        Gradient(colors: [userAccentColor, userAccentColor.opacity(0.7)])
                     )
                     .padding(.horizontal, 4)
                 }
@@ -74,13 +74,13 @@ struct DownloadActivityWidget: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "arrow.down.circle.fill")
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(userAccentColor)
             } compactTrailing: {
                 Gauge(value: context.state.progress) {
                     Text("\(Int(context.state.progress * 100))")
                 }
                 .gaugeStyle(.accessoryCircularCapacity)
-                .tint(accentColor)
+                .tint(userAccentColor)
                 .frame(width: 24, height: 24)
             } minimal: {
                 Gauge(value: context.state.progress) {
@@ -88,7 +88,7 @@ struct DownloadActivityWidget: Widget {
                         .font(.caption2)
                 }
                 .gaugeStyle(.accessoryCircularCapacity)
-                .tint(accentColor)
+                .tint(userAccentColor)
             }
         }
     }
@@ -104,7 +104,7 @@ private struct LockScreenView: View {
             HStack(spacing: 10) {
                 Image(systemName: progressIcon)
                     .font(.title2)
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(userAccentColor)
                     .symbolEffect(.pulse, isActive: context.state.progress < 1.0)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -127,7 +127,7 @@ private struct LockScreenView: View {
                 EmptyView()
             }
             .gaugeStyle(.accessoryLinear)
-            .tint(Gradient(colors: [accentColor, accentColor.opacity(0.7)]))
+            .tint(Gradient(colors: [userAccentColor, userAccentColor.opacity(0.7)]))
 
             HStack {
                 VStack(alignment: .leading) {
