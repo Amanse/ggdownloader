@@ -4,10 +4,12 @@ import SwiftUI
 struct ggdownloaderApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
+    @State private var accentManager = AccentColorManager.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(accentManager.accentColor)
                 .onAppear {
                     DownloadManager.shared.reconnectTasks()
                     processPendingDownloads()

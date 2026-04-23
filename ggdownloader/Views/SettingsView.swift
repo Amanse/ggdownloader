@@ -8,6 +8,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Appearance") {
+                    AccentColorPickerView()
+                }
+
                 Section("Storage") {
                     LabeledContent("Downloaded Files", value: totalSize.formattedFileSize)
                     Button("Clear Completed Downloads", role: .destructive) {
