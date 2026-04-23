@@ -32,8 +32,8 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
-                    LabeledContent("Version", value: "1.0")
-                    LabeledContent("Build", value: "1")
+                    LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                    LabeledContent("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—")
                     LabeledContent("Source Code") {
                         Link("GitHub", destination: URL(string: "https://github.com/Amanse/ggdownloader")!)
                     }
