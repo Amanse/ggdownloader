@@ -92,6 +92,51 @@ final class DownloadStore: Sendable {
         try? fileManager.removeItem(at: url)
     }
 
+    // MARK: - Custom Download Location
+
+    private let downloadBookmarkKey = "customDownloadLocationBookmark"
+
+    func saveDownloadLocationBookmark(for url: URL) {
+        guard let data = try? url.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) else { return }
+        defaults?.set(data, forKey: downloadBookmarkKey)
+    }
+
+    func resolveCustomDownloadDirectory() -> URL? {
+        guard let data = defaults?.data(forKey: downloadBookmarkKey) else { return nil }
+        var isStale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: data,
+            options: [],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ) else { return nil }
+
+        if isStale {
+            // Re-save fresh bookmark
+            saveDownloadLocationBookmark(for: url)
+        }
+
+        // Verify directory is still accessible
+        guard url.startAccessingSecurityScopedResource() else { return nil }
+        let exists = fileManager.isWritableFile(atPath: url.path)
+        url.stopAccessingSecurityScopedResource()
+        guard exists else { return nil }
+
+        return url
+    }
+
+    func clearCustomDownloadLocation() {
+        defaults?.removeObject(forKey: downloadBookmarkKey)
+    }
+
+    func customDownloadLocationDisplayName() -> String? {
+        resolveCustomDownloadDirectory()?.lastPathComponent
+    }
+
     // MARK: - Accent Color
 
     private let accentColorKey = "accentColorHex"
@@ -109,7 +154,16 @@ final class DownloadStore: Sendable {
     private let pendingURLsKey = "pendingDownloadURLs"
 
     func pendingURLStrings() -> [String] {
-        defaults?.stringArray(forKey: pendingURLsKey) ?? []
+        // Force re-read from disk — share extension writes from separate process
+        defaults?.synchronize()
+        return defaults?.stringArray(forKey: pendingURLsKey) ?? []
+    }
+
+    func appendPendingURL(_ urlString: String) {
+        var pending = defaults?.stringArray(forKey: pendingURLsKey) ?? []
+        pending.append(urlString)
+        defaults?.set(pending, forKey: pendingURLsKey)
+        defaults?.synchronize()
     }
 
     func clearPendingURLs() {

@@ -14,6 +14,9 @@ struct ggdownloaderApp: App {
                     DownloadManager.shared.reconnectTasks()
                     processPendingDownloads()
                 }
+                .onOpenURL { url in
+                    handleIncomingURL(url)
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -35,5 +38,18 @@ struct ggdownloaderApp: App {
             else { continue }
             DownloadManager.shared.startDownload(url: url)
         }
+    }
+
+    // Handles ggdownloader://download?url=<percent-encoded-http-url>
+    private func handleIncomingURL(_ url: URL) {
+        guard url.scheme == "ggdownloader",
+              url.host == "download",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let urlParam = components.queryItems?.first(where: { $0.name == "url" })?.value,
+              let downloadURL = URL(string: urlParam),
+              downloadURL.scheme?.hasPrefix("http") == true
+        else { return }
+        DownloadStore.shared.appendPendingURL(downloadURL.absoluteString)
+        processPendingDownloads()
     }
 }
