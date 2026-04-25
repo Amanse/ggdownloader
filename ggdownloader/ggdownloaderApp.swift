@@ -49,6 +49,7 @@ struct ggdownloaderApp: App {
               let downloadURL = URL(string: urlParam),
               downloadURL.scheme?.hasPrefix("http") == true
         else { return }
-        DownloadManager.shared.startDownload(url: downloadURL)
+        DownloadStore.shared.appendPendingURL(downloadURL.absoluteString)
+        processPendingDownloads()
     }
 }
