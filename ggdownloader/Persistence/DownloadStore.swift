@@ -20,7 +20,9 @@ final class DownloadStore: Sendable {
             withIntermediateDirectories: true
         )
 
-        defaults = UserDefaults(suiteName: appGroupID)
+        // Fall back to .standard when the App Group suite isn't available
+        // (e.g. sideloaded with a cert that can't sign the App Group entitlement).
+        defaults = UserDefaults(suiteName: appGroupID) ?? .standard
     }
 
     // MARK: - Download Items

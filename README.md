@@ -73,6 +73,50 @@ Pause stores `NSURLSessionDownloadTaskResumeData` from the error info or `cancel
 - `NSSupportsLiveActivities = YES` must be set in the app target's Info.plist.
 - The widget extension target must include `ActivityKit` and `WidgetKit` frameworks.
 
+## Sideloading (Feather, AltStore, Sideloadly, etc.)
+
+If you build the IPA yourself and sideload with your own developer certificate (not the original team `S8C9WFT4QV`), the app group **`group.sanuki.ggdownloader`** is not signable by your cert and the app will fail to start downloads with:
+
+> Couldn't create file
+
+This is `NSURLErrorCannotCreateFile` (`-3000`). The background URL session daemon (`nsurlsessiond`) can't create the partial download in the app's cache because the entitlements declared in the bundle (`com.apple.security.application-groups`) don't match what your signing identity is authorized to grant. iOS responds by tightening the sandbox and blocking file creation.
+
+Xcode debug builds work because the original team profile grants the App Group; your re-signed IPA does not.
+
+### Fix when sideloading
+
+You have two options. Pick one **before** signing/installing the IPA:
+
+**Option A — Remove the App Group entitlement (easiest, recommended for free Apple IDs)**
+
+In Feather, before installing:
+
+1. Long-press the IPA in your library → **Signing Options** (or *App Options* / *Modify* depending on Feather version).
+2. Disable / remove **App Groups** (toggle off `group.sanuki.ggdownloader`).
+3. Sign and install.
+
+In other sideloaders:
+
+- **AltStore / SideStore**: open the app's settings and toggle off App Groups before installing.
+- **Sideloadly**: under *Advanced options*, check "Remove app groups" (or manually edit the `.entitlements` to delete the `application-groups` key) before signing.
+
+Trade-off: with the App Group removed, the **Share Extension and Lock Screen widget can't hand URLs to the main app**, so adding downloads via the iOS share sheet won't work. Downloads added from inside the app work normally. Live Activities in the Dynamic Island still work.
+
+**Option B — Replace the App Group ID with one your team owns (paid Apple Developer account)**
+
+1. In Apple Developer portal, register a new app group, e.g. `group.<your-team>.ggdownloader`.
+2. In Xcode, edit `ggdownloader.entitlements`, `ggdownloaderShareExtension.entitlements`, and `ggdownloaderWidgetExtensionExtension.entitlements` and replace `group.sanuki.ggdownloader` with your group ID.
+3. In `ggdownloader/Persistence/DownloadStore.swift` and `ggdownloaderShareExtension/ShareViewController.swift`, replace the `appGroupID` constant with your group ID.
+4. Set `DEVELOPMENT_TEAM` to your team ID and rebuild.
+
+Everything (including the Share Extension) works normally with this option.
+
+### Other tips
+
+- **TrollStore** users: no re-signing happens, so this issue doesn't apply — install the IPA as-is.
+- After changing signing options in Feather, fully delete the previously installed copy before reinstalling. Stale `nsurlsessiond` cache state from the old install can keep producing the same error otherwise.
+- If you still see `Couldn't create file` after removing App Groups, delete the app, reboot the device, and reinstall — this clears any leftover daemon state for the prior bundle ID.
+
 ## Icon
 
 Three variants (light, dark, tinted) generated with AppKit/CoreGraphics — a bold download arrow on a deep navy background with blue-to-cyan gradient fill and specular highlight.
