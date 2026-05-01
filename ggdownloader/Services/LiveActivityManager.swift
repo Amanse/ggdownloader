@@ -23,7 +23,8 @@ final class LiveActivityManager {
             bytesDownloaded: 0,
             totalBytes: item.totalBytes,
             statusMessage: "Starting...",
-            speed: "--"
+            speed: "--",
+            eta: "--"
         )
 
         do {
@@ -42,7 +43,8 @@ final class LiveActivityManager {
         progress: Double,
         bytesDownloaded: Int64,
         totalBytes: Int64,
-        speed: Double
+        speed: Double,
+        eta: String
     ) {
         let now = Date()
         if let last = lastUpdateTime[downloadID], now.timeIntervalSince(last) < updateInterval {
@@ -57,7 +59,8 @@ final class LiveActivityManager {
             bytesDownloaded: bytesDownloaded,
             totalBytes: totalBytes,
             statusMessage: "Downloading...",
-            speed: speed.formattedSpeed
+            speed: speed.formattedSpeed,
+            eta: eta
         )
 
         Task {
@@ -73,7 +76,8 @@ final class LiveActivityManager {
             bytesDownloaded: 0,
             totalBytes: 0,
             statusMessage: success ? "Download Complete" : "Download Failed",
-            speed: "--"
+            speed: "--",
+            eta: "--"
         )
 
         Task {
@@ -94,7 +98,8 @@ final class LiveActivityManager {
             bytesDownloaded: 0,
             totalBytes: 0,
             statusMessage: cancelled ? "Cancelled" : "Paused",
-            speed: "--"
+            speed: "--",
+            eta: "--"
         )
 
         Task {

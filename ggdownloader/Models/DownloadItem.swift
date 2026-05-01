@@ -1,5 +1,11 @@
 import Foundation
 
+struct DownloadFailure: Identifiable {
+    let id = UUID()
+    let fileName: String
+    let message: String
+}
+
 enum DownloadStatus: String, Codable, Sendable {
     case waiting
     case downloading
@@ -21,6 +27,12 @@ struct DownloadItem: Identifiable, Codable, Sendable {
     var dateCompleted: Date?
     var errorMessage: String?
     var taskIdentifier: Int?
+    var speed: Double = 0   // bytes/sec, transient — excluded from persistence
+
+    private enum CodingKeys: String, CodingKey {
+        case id, url, fileName, status, progress, totalBytes, downloadedBytes
+        case dateAdded, dateCompleted, errorMessage, taskIdentifier
+    }
 
     init(
         id: UUID = UUID(),
@@ -33,7 +45,8 @@ struct DownloadItem: Identifiable, Codable, Sendable {
         dateAdded: Date = Date(),
         dateCompleted: Date? = nil,
         errorMessage: String? = nil,
-        taskIdentifier: Int? = nil
+        taskIdentifier: Int? = nil,
+        speed: Double = 0
     ) {
         self.id = id
         self.url = url
@@ -46,5 +59,6 @@ struct DownloadItem: Identifiable, Codable, Sendable {
         self.dateCompleted = dateCompleted
         self.errorMessage = errorMessage
         self.taskIdentifier = taskIdentifier
+        self.speed = speed
     }
 }

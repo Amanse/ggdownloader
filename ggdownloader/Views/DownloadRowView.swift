@@ -93,8 +93,14 @@ struct DownloadRowView: View {
     }
 
     private var speedLabel: String {
+        if item.speed > 0 {
+            let eta = formattedTimeRemaining(
+                bytesRemaining: item.totalBytes - item.downloadedBytes,
+                bytesPerSecond: item.speed
+            )
+            return "\(item.speed.formattedSpeed) · \(eta) remaining"
+        }
         if item.totalBytes > 0 {
-            let remaining = item.totalBytes - item.downloadedBytes
             return item.totalBytes.formattedFileSize + " total"
         }
         return item.downloadedBytes.formattedFileSize + " downloaded"

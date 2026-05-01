@@ -8,6 +8,7 @@ struct DownloadAttributes: ActivityAttributes {
         var totalBytes: Int64
         var statusMessage: String
         var speed: String
+        var eta: String
     }
 
     var fileName: String

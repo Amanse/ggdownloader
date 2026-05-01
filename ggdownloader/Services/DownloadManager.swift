@@ -7,6 +7,7 @@ final class DownloadManager: NSObject {
     static let shared = DownloadManager()
 
     var downloads: [DownloadItem] = []
+    var recentFailure: DownloadFailure? = nil
 
     // Called by AppDelegate to notify completion handler
     nonisolated(unsafe) var backgroundCompletionHandler: (() -> Void)?
@@ -14,6 +15,7 @@ final class DownloadManager: NSObject {
     private nonisolated(unsafe) var urlSession: URLSession!
     private nonisolated(unsafe) var taskToDownloadID: [Int: UUID] = [:]
     private nonisolated(unsafe) var speedTracker: [UUID: SpeedTracker] = [:]
+    private nonisolated(unsafe) var resolvedFileNames: Set<UUID> = []
 
     private let store = DownloadStore.shared
 
@@ -69,6 +71,8 @@ final class DownloadManager: NSObject {
                 self.store.saveResumeData(data, for: id)
             }
             Task { @MainActor in
+                guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                self.downloads[idx].speed = 0
                 self.updateStatus(id: id, status: .paused)
                 self.speedTracker.removeValue(forKey: id)
                 LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
@@ -115,6 +119,7 @@ final class DownloadManager: NSObject {
         }
         store.deleteResumeData(for: id)
         speedTracker.removeValue(forKey: id)
+        resolvedFileNames.remove(id)
         updateStatus(id: id, status: .cancelled)
         LiveActivityManager.shared.endActivity(downloadID: id, cancelled: true)
     }
@@ -131,6 +136,34 @@ final class DownloadManager: NSObject {
         }
         downloads.removeAll { [.completed, .failed, .cancelled].contains($0.status) }
         store.save(downloads)
+    }
+
+    // MARK: - Error Helpers
+
+    private nonisolated func httpErrorMessage(_ code: Int) -> String {
+        switch code {
+        case 400: return "Bad request (400)"
+        case 401: return "Authentication required (401)"
+        case 403: return "Access denied — you don't have permission to download this file (403)"
+        case 404: return "File not found — the URL may be incorrect (404)"
+        case 410: return "File no longer available (410)"
+        case 429: return "Too many requests — try again later (429)"
+        case 500...599: return "Server error (\(code)) — try again later"
+        default: return "HTTP error \(code)"
+        }
+    }
+
+    private nonisolated func friendlyErrorMessage(_ error: Error) -> String {
+        let nsError = error as NSError
+        switch nsError.code {
+        case -1022: return "HTTP not allowed — the server requires a secure connection. Use an HTTPS URL."
+        case -1001: return "Connection timed out — check your network and try again"
+        case -1009: return "No internet connection"
+        case -1004: return "Could not connect to the server"
+        case -1003: return "Server not found — check the URL"
+        case -1200: return "Secure connection failed (SSL error)"
+        default:    return error.localizedDescription
+        }
     }
 
     // MARK: - Reconnect on Launch
@@ -200,6 +233,17 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         let store = DownloadStore.shared
         store.prepareDownloadsDirectory()
 
+        // Check HTTP status before saving — download tasks don't error on 4xx/5xx
+        if let httpResponse = downloadTask.response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            let message = httpErrorMessage(httpResponse.statusCode)
+            resolvedFileNames.remove(id)
+            Task { @MainActor in
+                self.markFailed(id: id, error: message)
+            }
+            return
+        }
+
         // Determine file name - prefer server-suggested name
         let suggestedName = downloadTask.response?.suggestedFilename
         var fileName: String
@@ -267,7 +311,9 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
             self.downloads[idx].progress = 1.0
             self.downloads[idx].dateCompleted = Date()
             self.downloads[idx].fileName = fileName
+            self.downloads[idx].speed = 0
             self.speedTracker.removeValue(forKey: id)
+            self.resolvedFileNames.remove(id)
             self.store.save(self.downloads)
             LiveActivityManager.shared.endActivity(downloadID: id, success: true)
         }
@@ -291,19 +337,46 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
 
         let speed = speedTracker[id]?.record(bytes: totalBytesWritten) ?? 0
 
+        // Resolve filename from Content-Disposition header on first write
+        let needsNameResolution = !resolvedFileNames.contains(id)
+        var resolvedName: String? = nil
+        if needsNameResolution {
+            resolvedFileNames.insert(id)
+            if let suggested = downloadTask.response?.suggestedFilename, !suggested.isEmpty {
+                var sanitized = suggested
+                    .replacingOccurrences(of: "/", with: "_")
+                    .replacingOccurrences(of: ":", with: "_")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if sanitized.isEmpty { sanitized = "download" }
+                resolvedName = sanitized
+            }
+        }
+
+        let eta = totalBytesExpectedToWrite > 0
+            ? formattedTimeRemaining(
+                bytesRemaining: totalBytesExpectedToWrite - totalBytesWritten,
+                bytesPerSecond: speed)
+            : "--"
+
         Task { @MainActor in
             guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             self.downloads[idx].progress = progress
             self.downloads[idx].downloadedBytes = totalBytesWritten
             self.downloads[idx].totalBytes = totalBytesExpectedToWrite
             self.downloads[idx].status = .downloading
+            self.downloads[idx].speed = speed
+            if let name = resolvedName {
+                self.downloads[idx].fileName = name
+                self.store.save(self.downloads)
+            }
 
             LiveActivityManager.shared.updateProgress(
                 downloadID: id,
                 progress: progress,
                 bytesDownloaded: totalBytesWritten,
                 totalBytes: totalBytesExpectedToWrite,
-                speed: speed
+                speed: speed,
+                eta: eta
             )
         }
     }
@@ -325,7 +398,10 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         // Check for resume data (user-initiated cancel or network failure)
         if let resumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
             DownloadStore.shared.saveResumeData(resumeData, for: id)
+            resolvedFileNames.remove(id)
             Task { @MainActor in
+                guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                self.downloads[idx].speed = 0
                 self.updateStatus(id: id, status: .paused)
                 self.speedTracker.removeValue(forKey: id)
                 LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
@@ -333,8 +409,9 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         } else if nsError.code == NSURLErrorCancelled {
             // Explicit cancel, already handled in cancelDownload()
         } else {
+            let message = friendlyErrorMessage(error)
             Task { @MainActor in
-                self.markFailed(id: id, error: error.localizedDescription)
+                self.markFailed(id: id, error: message)
             }
         }
     }
@@ -352,9 +429,12 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].status = .failed
         downloads[idx].errorMessage = error
+        downloads[idx].speed = 0
         speedTracker.removeValue(forKey: id)
+        resolvedFileNames.remove(id)
         store.save(downloads)
         LiveActivityManager.shared.endActivity(downloadID: id, success: false)
+        recentFailure = DownloadFailure(fileName: downloads[idx].fileName, message: error)
     }
 }
 

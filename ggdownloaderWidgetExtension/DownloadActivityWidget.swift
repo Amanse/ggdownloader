@@ -151,13 +151,11 @@ private struct LockScreenView: View {
                 Spacer()
 
                 VStack(alignment: .trailing) {
-                    Text("Total")
+                    Text("ETA")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Text(context.state.totalBytes > 0
-                         ? context.state.totalBytes.formattedFileSize
-                         : "Unknown")
-                    .font(.caption.bold())
+                    Text(context.state.eta)
+                        .font(.caption.bold())
                 }
             }
         }
@@ -194,7 +192,8 @@ private extension Int64 {
         bytesDownloaded: 1_800_000_000,
         totalBytes: 4_000_000_000,
         statusMessage: "Downloading...",
-        speed: "12.4 MB/s"
+        speed: "12.4 MB/s",
+        eta: "3m 12s"
     )
 }
 
@@ -213,14 +212,16 @@ private extension Int64 {
         bytesDownloaded: 1_800_000_000,
         totalBytes: 4_000_000_000,
         statusMessage: "Downloading...",
-        speed: "12.4 MB/s"
+        speed: "12.4 MB/s",
+        eta: "3m 12s"
     )
     DownloadAttributes.ContentState(
         progress: 1.0,
         bytesDownloaded: 4_000_000_000,
         totalBytes: 4_000_000_000,
         statusMessage: "Download Complete",
-        speed: "--"
+        speed: "--",
+        eta: "--"
     )
 }
 
@@ -239,6 +240,7 @@ private extension Int64 {
         bytesDownloaded: 1_800_000_000,
         totalBytes: 4_000_000_000,
         statusMessage: "Downloading...",
-        speed: "12.4 MB/s"
+        speed: "12.4 MB/s",
+        eta: "3m 12s"
     )
 }

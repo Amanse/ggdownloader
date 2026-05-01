@@ -9,6 +9,7 @@ struct DownloadListView: View {
     let filter: DownloadFilter
     @State private var downloadManager = DownloadManager.shared
     @State private var showAddSheet = false
+    @State private var selectedDownloadID: UUID? = nil
 
     private var filteredDownloads: [DownloadItem] {
         switch filter {
@@ -54,6 +55,14 @@ struct DownloadListView: View {
             .sheet(isPresented: $showAddSheet) {
                 AddDownloadView()
             }
+            .sheet(isPresented: Binding(
+                get: { selectedDownloadID != nil },
+                set: { if !$0 { selectedDownloadID = nil } }
+            )) {
+                if let id = selectedDownloadID {
+                    DownloadDetailView(id: id)
+                }
+            }
         }
     }
 
@@ -61,6 +70,7 @@ struct DownloadListView: View {
         List {
             ForEach(filteredDownloads) { item in
                 DownloadRowView(item: item)
+                    .onTapGesture { selectedDownloadID = item.id }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button("Cancel", role: .destructive) {
                             withAnimation {

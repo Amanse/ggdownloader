@@ -63,19 +63,19 @@
 			);
 			target = 8C30221C2F980874000A1962 /* ggdownloaderWidgetExtensionExtension */;
 		};
-		AA0001102F980874000A1962 /* Exceptions for "ggdownloader" folder in "ggdownloader" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 8C3021C62F9801DA000A1962 /* ggdownloader */;
-		};
 		AA0001032F980874000A1962 /* Exceptions for "ggdownloaderShareExtension" folder in "ggdownloaderShareExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = AA0001072F980874000A1962 /* ggdownloaderShareExtension */;
+		};
+		AA0001102F980874000A1962 /* Exceptions for "ggdownloader" folder in "ggdownloader" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8C3021C62F9801DA000A1962 /* ggdownloader */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 

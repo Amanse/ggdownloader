@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedTab: AppTab = .downloads
     @State private var showAddSheet = false
+    @State private var downloadManager = DownloadManager.shared
 
     enum AppTab: Hashable {
         case downloads
@@ -33,6 +34,18 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             AddDownloadView()
+        }
+        .alert(
+            item: Binding(
+                get: { downloadManager.recentFailure },
+                set: { _ in downloadManager.recentFailure = nil }
+            )
+        ) { failure in
+            Alert(
+                title: Text("Download Failed"),
+                message: Text("\(failure.fileName)\n\n\(failure.message)"),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }
