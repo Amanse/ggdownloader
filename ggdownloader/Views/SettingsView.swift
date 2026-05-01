@@ -1,15 +1,34 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var downloadManager = DownloadManager.shared
     @State private var showClearConfirm = false
     @State private var totalSize: Int64 = 0
+    @State private var showFolderPicker = false
+    @State private var customLocationName: String?
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Appearance") {
                     AccentColorPickerView()
+                }
+
+                Section("Download Location") {
+                    LabeledContent("Save to") {
+                        Text(customLocationName ?? "Default (Downloads)")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Choose Location") {
+                        showFolderPicker = true
+                    }
+                    if customLocationName != nil {
+                        Button("Reset to Default") {
+                            DownloadStore.shared.clearCustomDownloadLocation()
+                            customLocationName = nil
+                        }
+                    }
                 }
 
                 Section("Storage") {
@@ -42,6 +61,16 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .onAppear {
                 totalSize = DownloadStore.shared.totalDownloadedSize()
+                customLocationName = DownloadStore.shared.customDownloadLocationDisplayName()
+            }
+            .fileImporter(
+                isPresented: $showFolderPicker,
+                allowedContentTypes: [.folder]
+            ) { result in
+                if case .success(let url) = result {
+                    DownloadStore.shared.saveDownloadLocationBookmark(for: url)
+                    customLocationName = url.lastPathComponent
+                }
             }
             .confirmationDialog(
                 "Clear all completed, failed, and cancelled downloads?",

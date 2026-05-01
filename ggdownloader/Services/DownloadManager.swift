@@ -202,7 +202,7 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
 
         // Determine file name - prefer server-suggested name
         let suggestedName = downloadTask.response?.suggestedFilename
-        let fileName: String
+        var fileName: String
 
         // Get stored fileName from downloads on main thread (snapshot)
         var storedName: String?
@@ -212,7 +212,24 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
 
         fileName = suggestedName ?? storedName ?? location.lastPathComponent
 
-        let destination = store.destinationURL(for: fileName)
+        // Sanitize: remove path separators and colons that break file creation
+        fileName = fileName
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if fileName.isEmpty { fileName = "download" }
+
+        // Try custom download location first, fall back to default
+        var destination: URL
+        var scopedURL: URL?
+
+        if let customDir = store.resolveCustomDownloadDirectory() {
+            customDir.startAccessingSecurityScopedResource()
+            scopedURL = customDir
+            destination = customDir.appendingPathComponent(fileName)
+        } else {
+            destination = store.destinationURL(for: fileName)
+        }
 
         // Remove existing file at destination
         try? FileManager.default.removeItem(at: destination)
@@ -220,11 +237,29 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         do {
             try FileManager.default.moveItem(at: location, to: destination)
         } catch {
-            Task { @MainActor in
-                self.markFailed(id: id, error: "Failed to save file: \(error.localizedDescription)")
+            // If custom location failed, fall back to default
+            if scopedURL != nil {
+                scopedURL?.stopAccessingSecurityScopedResource()
+                scopedURL = nil
+                destination = store.destinationURL(for: fileName)
+                try? FileManager.default.removeItem(at: destination)
+                do {
+                    try FileManager.default.moveItem(at: location, to: destination)
+                } catch {
+                    Task { @MainActor in
+                        self.markFailed(id: id, error: "Failed to save file: \(error.localizedDescription)")
+                    }
+                    return
+                }
+            } else {
+                Task { @MainActor in
+                    self.markFailed(id: id, error: "Failed to save file: \(error.localizedDescription)")
+                }
+                return
             }
-            return
         }
+
+        scopedURL?.stopAccessingSecurityScopedResource()
 
         Task { @MainActor in
             guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
