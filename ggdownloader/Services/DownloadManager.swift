@@ -125,6 +125,11 @@ final class DownloadManager: NSObject {
     }
 
     func cancelDownload(id: UUID) {
+        guard
+            let item = downloads.first(where: { $0.id == id }),
+            [.waiting, .downloading, .paused].contains(item.status)
+        else { return }
+
         // Set the status first so didCompleteWithError cannot mistake the
         // cancellation's resume data for a paused download.
         updateStatus(id: id, status: .cancelled)
@@ -143,9 +148,9 @@ final class DownloadManager: NSObject {
             [.completed, .failed, .cancelled].contains($0.status)
         }
         for item in toRemove {
-            if item.status == .completed {
-                store.deleteFile(named: item.fileName)
-            }
+            // Older versions allowed completed items to be cancelled, changing
+            // their status while leaving the completed file on disk.
+            store.deleteFile(named: item.fileName)
             store.deleteResumeData(for: item.id)
         }
         downloads.removeAll { [.completed, .failed, .cancelled].contains($0.status) }

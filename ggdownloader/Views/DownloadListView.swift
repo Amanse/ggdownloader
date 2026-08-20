@@ -72,16 +72,18 @@ struct DownloadListView: View {
                 DownloadRowView(item: item)
                     .onTapGesture { selectedDownloadID = item.id }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("Cancel", role: .destructive) {
-                            withAnimation {
-                                downloadManager.cancelDownload(id: item.id)
+                        if filter == .active {
+                            Button("Cancel", role: .destructive) {
+                                withAnimation {
+                                    downloadManager.cancelDownload(id: item.id)
+                                }
                             }
-                        }
-                        if item.status == .downloading {
-                            Button("Pause") {
-                                downloadManager.pauseDownload(id: item.id)
+                            if item.status == .downloading {
+                                Button("Pause") {
+                                    downloadManager.pauseDownload(id: item.id)
+                                }
+                                .tint(.orange)
                             }
-                            .tint(.orange)
                         }
                     }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
