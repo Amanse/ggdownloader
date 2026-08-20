@@ -57,6 +57,25 @@ final class DownloadStore: Sendable {
         try? fileManager.removeItem(at: url)
     }
 
+    /// Removes resume data that no longer belongs to a paused download. This
+    /// also cleans up files orphaned by cancellation races in older versions.
+    func deleteOrphanedResumeData(keeping downloadIDs: Set<UUID>) {
+        guard let files = try? fileManager.contentsOfDirectory(
+            at: resumeDataDirectory,
+            includingPropertiesForKeys: nil
+        ) else { return }
+
+        for file in files {
+            guard
+                let id = UUID(uuidString: file.lastPathComponent),
+                downloadIDs.contains(id)
+            else {
+                try? fileManager.removeItem(at: file)
+                continue
+            }
+        }
+    }
+
     // MARK: - Downloaded Files
 
     var downloadsDirectory: URL {

@@ -65,17 +65,29 @@ final class DownloadManager: NSObject {
         let tasks = tasksSnapshot()
         guard let task = tasks.first(where: { $0.taskIdentifier == taskID }) as? URLSessionDownloadTask else { return }
 
+        // Record the intent before cancelling the task. URLSession reports both
+        // pauses and explicit cancellations as NSURLErrorCancelled, so the
+        // persisted item status is what lets the completion callback distinguish
+        // between them.
+        if let idx = downloads.firstIndex(where: { $0.id == id }) {
+            downloads[idx].speed = 0
+        }
+        updateStatus(id: id, status: .paused)
+        speedTracker.removeValue(forKey: id)
+        LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
+
         task.cancel(byProducingResumeData: { [weak self] resumeData in
             guard let self else { return }
-            if let data = resumeData {
-                self.store.saveResumeData(data, for: id)
-            }
             Task { @MainActor in
-                guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                self.downloads[idx].speed = 0
-                self.updateStatus(id: id, status: .paused)
-                self.speedTracker.removeValue(forKey: id)
-                LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
+                guard self.downloads.first(where: { $0.id == id })?.status == .paused else {
+                    // The item may have been cancelled or cleared while URLSession
+                    // was producing resume data. Do not recreate orphaned data.
+                    self.store.deleteResumeData(for: id)
+                    return
+                }
+                if let resumeData {
+                    self.store.saveResumeData(resumeData, for: id)
+                }
             }
         })
     }
@@ -113,6 +125,9 @@ final class DownloadManager: NSObject {
     }
 
     func cancelDownload(id: UUID) {
+        // Set the status first so didCompleteWithError cannot mistake the
+        // cancellation's resume data for a paused download.
+        updateStatus(id: id, status: .cancelled)
         if let taskID = taskIdentifier(for: id) {
             let tasks = tasksSnapshot()
             tasks.first(where: { $0.taskIdentifier == taskID })?.cancel()
@@ -120,7 +135,6 @@ final class DownloadManager: NSObject {
         store.deleteResumeData(for: id)
         speedTracker.removeValue(forKey: id)
         resolvedFileNames.remove(id)
-        updateStatus(id: id, status: .cancelled)
         LiveActivityManager.shared.endActivity(downloadID: id, cancelled: true)
     }
 
@@ -136,6 +150,10 @@ final class DownloadManager: NSObject {
         }
         downloads.removeAll { [.completed, .failed, .cancelled].contains($0.status) }
         store.save(downloads)
+        let pausedDownloadIDs = Set(
+            downloads.lazy.filter { $0.status == .paused }.map(\.id)
+        )
+        store.deleteOrphanedResumeData(keeping: pausedDownloadIDs)
     }
 
     // MARK: - Error Helpers
@@ -363,10 +381,14 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
 
         Task { @MainActor in
             guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            guard self.downloads[idx].status == .downloading else {
+                // Progress callbacks already queued by URLSession must not revive
+                // an item after the user pauses, cancels, or clears it.
+                return
+            }
             self.downloads[idx].progress = progress
             self.downloads[idx].downloadedBytes = totalBytesWritten
             self.downloads[idx].totalBytes = totalBytesExpectedToWrite
-            self.downloads[idx].status = .downloading
             self.downloads[idx].speed = speed
             if let name = resolvedName {
                 self.downloads[idx].fileName = name
@@ -389,33 +411,17 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
-        guard let error else { return }
-
         guard
             let uuidString = task.taskDescription,
             let id = UUID(uuidString: uuidString)
         else { return }
 
-        let nsError = error as NSError
-
-        // Check for resume data (user-initiated cancel or network failure)
-        if let resumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
-            DownloadStore.shared.saveResumeData(resumeData, for: id)
-            resolvedFileNames.remove(id)
-            Task { @MainActor in
-                guard let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                self.downloads[idx].speed = 0
-                self.updateStatus(id: id, status: .paused)
-                self.speedTracker.removeValue(forKey: id)
-                LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
-            }
-        } else if nsError.code == NSURLErrorCancelled {
-            // Explicit cancel, already handled in cancelDownload()
-        } else {
-            let message = friendlyErrorMessage(error)
-            Task { @MainActor in
-                self.markFailed(id: id, error: message)
-            }
+        Task { @MainActor in
+            self.handleTaskCompletion(
+                taskIdentifier: task.taskIdentifier,
+                downloadID: id,
+                error: error
+            )
         }
     }
 
@@ -427,6 +433,60 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
     }
 
     // MARK: - Private helper (must be called on MainActor)
+    @MainActor
+    private func handleTaskCompletion(
+        taskIdentifier: Int,
+        downloadID id: UUID,
+        error: Error?
+    ) {
+        taskToDownloadID.removeValue(forKey: taskIdentifier)
+
+        guard let error else { return }
+
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else {
+            // Clear All may have removed the record before URLSession delivered
+            // its completion callback.
+            store.deleteResumeData(for: id)
+            speedTracker.removeValue(forKey: id)
+            resolvedFileNames.remove(id)
+            return
+        }
+
+        if downloads[idx].status == .cancelled {
+            store.deleteResumeData(for: id)
+            speedTracker.removeValue(forKey: id)
+            resolvedFileNames.remove(id)
+            return
+        }
+
+        let nsError = error as NSError
+        if downloads[idx].status == .paused {
+            if let resumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
+                store.saveResumeData(resumeData, for: id)
+            }
+            return
+        }
+
+        // Network failures can also provide resume data. Preserve it and expose
+        // the item as paused so the user can retry without starting over.
+        if let resumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
+            store.saveResumeData(resumeData, for: id)
+            resolvedFileNames.remove(id)
+            downloads[idx].speed = 0
+            updateStatus(id: id, status: .paused)
+            speedTracker.removeValue(forKey: id)
+            LiveActivityManager.shared.endActivity(downloadID: id, cancelled: false)
+        } else if nsError.code == NSURLErrorCancelled {
+            updateStatus(id: id, status: .cancelled)
+            store.deleteResumeData(for: id)
+            speedTracker.removeValue(forKey: id)
+            resolvedFileNames.remove(id)
+            LiveActivityManager.shared.endActivity(downloadID: id, cancelled: true)
+        } else {
+            markFailed(id: id, error: friendlyErrorMessage(error))
+        }
+    }
+
     @MainActor
     private func markFailed(id: UUID, error: String) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
