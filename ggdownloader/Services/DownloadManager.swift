@@ -315,6 +315,9 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
             self.speedTracker.removeValue(forKey: id)
             self.resolvedFileNames.remove(id)
             self.store.save(self.downloads)
+            if !self.store.hasCompletedFirstDownload {
+                self.store.hasCompletedFirstDownload = true
+            }
             LiveActivityManager.shared.endActivity(downloadID: id, success: true)
         }
     }

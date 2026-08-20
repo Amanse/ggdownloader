@@ -1,0 +1,87 @@
+{
+  "identifier" : "8A5E5D6C-4F2B-4A8E-9C1D-3E7F0A2B5D8C",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_SMALL_001",
+      "localizations" : [
+        {
+          "description" : "A small tip to support development",
+          "displayName" : "Small Tip",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.sanuki.ggdownloader.tip.small",
+      "referenceName" : "Small Tip",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_MEDIUM_001",
+      "localizations" : [
+        {
+          "description" : "Buy the developer a coffee",
+          "displayName" : "Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.sanuki.ggdownloader.tip.medium",
+      "referenceName" : "Coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_LARGE_001",
+      "localizations" : [
+        {
+          "description" : "A generous tip to support development",
+          "displayName" : "Big Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.sanuki.ggdownloader.tip.large",
+      "referenceName" : "Big Coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "TIP_HUGE_001",
+      "localizations" : [
+        {
+          "description" : "An amazing tip to support development",
+          "displayName" : "Mega Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.sanuki.ggdownloader.tip.huge",
+      "referenceName" : "Mega Coffee",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
