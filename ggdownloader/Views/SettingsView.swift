@@ -9,7 +9,6 @@ struct SettingsView: View {
     @State private var totalSize: Int64 = 0
     @State private var showFolderPicker = false
     @State private var customLocationName: String?
-    @State private var showTipJar = false
 
     var body: some View {
         NavigationStack {
@@ -53,10 +52,8 @@ struct SettingsView: View {
                     LabeledContent("Completed Downloads", value: "\(completedCount)")
                 }
 
-                if showTipJar {
-                    Section {
-                        tipJarContent
-                    }
+                Section("Tip Jar") {
+                    tipJarContent
                 }
 
                 Section("About") {
@@ -71,18 +68,6 @@ struct SettingsView: View {
             .onAppear {
                 totalSize = DownloadStore.shared.totalDownloadedSize()
                 customLocationName = DownloadStore.shared.customDownloadLocationDisplayName()
-                showTipJar = DownloadStore.shared.shouldShowTipJar
-            }
-            .onChange(of: tipJarManager.purchaseState) { _, newValue in
-                if newValue == .success {
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        withAnimation {
-                            DownloadStore.shared.hasDismissedTipJar = true
-                            showTipJar = false
-                        }
-                    }
-                }
             }
             .fileImporter(
                 isPresented: $showFolderPicker,
@@ -144,19 +129,13 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            } else {
+                Text("Tips are currently unavailable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            if tipJarManager.purchaseState != .success {
-                Button("Dismiss") {
-                    withAnimation {
-                        DownloadStore.shared.hasDismissedTipJar = true
-                        showTipJar = false
-                    }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
         }
         .padding(.vertical, 4)
         .task {

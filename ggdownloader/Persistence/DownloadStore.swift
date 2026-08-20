@@ -191,22 +191,4 @@ final class DownloadStore: Sendable {
         defaults?.removeObject(forKey: pendingURLsKey)
     }
 
-    // MARK: - Tip Jar Prompt
-
-    private let firstDownloadKey = "hasCompletedFirstDownload"
-    private let tipDismissedKey = "hasDismissedTipJar"
-
-    var hasCompletedFirstDownload: Bool {
-        get { defaults?.bool(forKey: firstDownloadKey) ?? false }
-        set { defaults?.set(newValue, forKey: firstDownloadKey) }
-    }
-
-    var hasDismissedTipJar: Bool {
-        get { defaults?.bool(forKey: tipDismissedKey) ?? false }
-        set { defaults?.set(newValue, forKey: tipDismissedKey) }
-    }
-
-    var shouldShowTipJar: Bool {
-        hasCompletedFirstDownload && !hasDismissedTipJar
-    }
 }
